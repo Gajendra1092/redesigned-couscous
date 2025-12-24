@@ -1,21 +1,33 @@
 import supabase from "../config/supabase.js"
+import { v4 as uuidv4 } from "uuid";
+import Video from "../models/video.model.js";
+
 
 async function initUpload(req,res){
     try{
-    const {fileName,mimiType} = req.body;
-    if(!fileName || !mimiType){
-        res.status(400).json("FileName or mimiType is not present!");
+    const {fileName,mimeType} = req.body;
+    
+    if(!fileName || !mimeType){
+      return res.status(400).json({error:"FileName or mimiType is not present!"});
     }
 
     const videoId = uuidv4();
 
     const filePath = `raw/${videoId}/${fileName}`;
 
-    const {data,error} = await supabase.storage.from(VideoStream).createSignedUploadUrl(filePath,900);
+    const {data,error} = await supabase.storage.from("VideoStream").createSignedUploadUrl(filePath,900);
 
     if(error){
         throw error;
     }
+
+    await Video.create({
+      videoId,
+      originalFileName: fileName,
+      storagePath: filePath,
+      mimeType,
+      status: "initiated",
+    });
 
     return res.json({
       videoId,
@@ -34,12 +46,21 @@ catch(err){
 async function completeUpload(req, res) {
   const { videoId, filePath } = req.body;
 
-  // 1. Verify file exists in storage --> skip
-  // 2. Save metadata in DB -->
-  
-  // 3. Start processing (FFmpeg, etc.)
+  // 1. Save metadata in DB -->
+  const video = await Video.findOne({videoId});
+  if(!video){
+    console.log("Video's metadata not uploded to db!");
+    return res.json({
+       message: "Video's metadata is not uploaded to db!",
+       videoId
+    })
+  }
 
-  res.json({
+  video.status = "uploaded"
+  await video.save();
+  // 2. Start processing (FFmpeg, etc.)
+
+  return res.json({
     message: "Upload acknowledged",
     videoId,
   });
