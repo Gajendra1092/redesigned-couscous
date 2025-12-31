@@ -1,13 +1,12 @@
-import 'dotenv/config';
 import express from "express";
 import connectDb from "./config/db.js";
 import videoRoutes from "./routes/video.route.js";
 import cors from "cors";
-
+import {PORT} from "./constants.js";
 
 const app = express();
 app.use(cors());
-const port = process.env.PORT || 3000;
+const port = PORT || 3000;
 
 app.use(express.json(
     {

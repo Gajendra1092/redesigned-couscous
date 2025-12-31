@@ -68,11 +68,23 @@ async function completeUpload(req, res) {
 
 
 async function getVideo(req,res){
-    
+
+    const {videoId} = req.params;
+    const video = await Video.findOne({videoId});
+    if(!video){
+        return res.stauts(404).json({error:"Video not found!"});
+    }
+
+
+    console.log(video);
+
+    // return res.status(200).json({message:"Video metadata found!",video});
+    // get video from supabase
 }
 
 
 export {
     completeUpload,
-    initUpload
+    initUpload,
+    getVideo
 }
