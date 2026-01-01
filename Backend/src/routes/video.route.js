@@ -6,7 +6,7 @@ const router = Router();
 
 router.post("/init-upload", initUpload);
 router.post("/complete", completeUpload);
-router.get("/video/:videoId", getVideo);
+router.get("/:videoId", getVideo);
 // router.route("/video").post(uploadVideo).get(getVideo);
 
 
