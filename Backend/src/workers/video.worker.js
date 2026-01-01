@@ -32,7 +32,7 @@ async function transcodeVideo(inputPath, outputPath, height) {
 
 function decideQualities(originalHeight) {
   const AVAILABLE = [1080, 720, 480, 360];
-  return AVAILABLE.filter((q) => q < originalHeight);
+  return AVAILABLE.filter((q) => q <= originalHeight);
 }
 
 
@@ -135,7 +135,7 @@ export async function processVideo(video) {
     const thumbnailStoragePath = `processed/${video.videoId}/thumbnail.jpg`;
     await uploadToSupabase(thumbnailPath, thumbnailStoragePath, "image/jpeg");
 
-    console.log(logPrefix, "Thumbnail uploaded");
+    console.log(logPrefix, "Thumbnail uploaded!");
 
     const renditions = [];
 
