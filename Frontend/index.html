@@ -11,6 +11,28 @@
     <button onclick="upload()">Upload</button>
 
     <pre id="log"></pre>
+    <hr />
+
+    <h2>Play Video</h2>
+
+    <input type="text" id="videoIdInput" placeholder="Enter videoId" />
+    <button onclick="loadVideo()">Load Video</button>
+
+    <br /><br />
+
+    <img id="thumbnail" style="max-width: 400px; display: none" />
+
+    <br /><br />
+
+    <select
+      id="qualitySelect"
+      onchange="changeQuality()"
+      style="display: none"
+    ></select>
+
+    <br /><br />
+
+    <video id="videoPlayer" width="600" controls style="display: none"></video>
 
     <script src="script.js"></script>
   </body>
