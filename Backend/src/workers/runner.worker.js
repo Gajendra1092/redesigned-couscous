@@ -37,7 +37,7 @@ cron.schedule("* * * * *", async () => {
       {
         status: "ready",
         thumbnailPath: result.thumbnail,
-        renditions: result.renditions,
+        hlsPath: result.hlsPath,
         original: result.original,
       }
     );

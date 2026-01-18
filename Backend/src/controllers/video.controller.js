@@ -7,6 +7,7 @@ async function initUpload(req, res) {
     const { fileName, mimeType } = req.body;
 
     if (!fileName || !mimeType) {
+      console.log("FileName or mimiType is not present!");
       return res
         .status(400)
         .json({ error: "FileName or mimiType is not present!" });
@@ -75,70 +76,95 @@ async function getVideo(req, res) {
       return res.status(404).json({ error: "Video not found" });
     }
 
-    // Only allow playback if processing is complete
     if (video.status !== "ready") {
+      console.log("Video not ready");
       return res.status(409).json({
         error: "Video is not ready yet",
         status: video.status,
       });
     }
-
-    // Signed URL for thumbnail
-    const { data: thumbnailData, error: thumbError } =
-      await supabase.storage
-        .from("VideoStream")
-        .createSignedUrl(video.thumbnailPath, 60);
-
-    if (thumbError) {
-      return res.status(404).json({
-        error: "Thumbnail not found in storage",
-      });
-    }
-
-    // Signed URL for original video (We will not use it as orignal video are not optimised for streaming.)
-    // const { data: originalData, error: originalError } =
+    // Thumbnail signed URL
+    // const { data: thumbnailData, error: thumbError } =
     //   await supabase.storage
     //     .from("VideoStream")
-    //     .createSignedUrl(video.storagePath, 60);
+    //     .createSignedUrl(video.thumbnailPath, 60);
 
-    // if (originalError) {
-    //   return res.status(404).json({
-    //     error: "Original video not found in storage",
-    //   });
+    // if (thumbError) {
+    //   return res.status(404).json({ error: "Thumbnail not found" });
     // }
 
-    // Signed URLs for all renditions (parallel)
-    const signedRenditions = await Promise.all(
-      (video.renditions || []).map(async (r) => {
-        const { data, error } = await supabase.storage
-          .from("VideoStream")
-          .createSignedUrl(r.storagePath, 60);
+    // 🔥 MASTER HLS signed URL (THIS IS WHAT PLAYER NEEDS)
+    // const { data: hlsData, error: hlsError } =
+    //   await supabase.storage
+    //     .from("VideoStream")
+    //     .createSignedUrl(video.hlsPath, 300);
 
-        if (error) {
-          throw new Error(`Rendition ${r.height}p not found`);
-        }
-
-        return {
-          height: r.height,
-          url: data.signedUrl,
-        };
-      })
-    );
-
+    // if (hlsError) {
+    //   console.log("HLS master not found in storage");
+    //   return res.status(404).json({ error: "HLS master not found" });
+    // }
+    const url =
+      "https://kbuudiqccmitqbudeysp.supabase.co/storage/v1/object/public/VideoStream/";
     return res.status(200).json({
       videoId,
-      thumbnailUrl: thumbnailData.signedUrl,
-      renditions: signedRenditions,
+      thumbnailUrl: url + video.thumbnailPath, //🔥 DIRECT PATH (NO SIGNED URL)
+      hlsUrl: url + video.hlsPath, // ✅ correct key + correct value
     });
-
   } catch (err) {
     console.error("getVideo failed:", err.message);
+    return res.status(500).json({ error: "Failed to fetch video" });
+  }
+}
+// implement rollback in this.
+async function deleteVideo(req, res) {
+  try {
+    const { videoId } = req.params;
+    const video = await Video.findOne({ videoId });
+    if (!video) {
+      return res.status(404).json({ error: "Video not found" });
+    }
 
-    return res.status(500).json({
-      error: "Failed to fetch video",
-    });
+    const paths = [];
+    const qualities = ["360p","480p", "720p", "1080p"];
+    
+    paths.push(video.storagePath); // raw video path
+    paths.push(`processed/${video.videoId}/thumbnail.jpg`);
+    paths.push(`processed/${video.videoId}/hls/master.m3u8`);
+
+    for (const quality of qualities) {
+
+       const {data : files, error} = await supabase.storage
+       .from("VideoStream")
+       .list(`processed/${video.videoId}/hls/${quality}/`);
+
+       if(error){
+        console.log(`Quality may not exist or Error listing files for quality ${quality}:`, error);
+        continue;
+       }
+
+       for(const file of files || []){
+          if(file.id){
+              console.log(file);
+              paths.push(`processed/${video.videoId}/hls/${quality}/${file.name}`);
+          }
+       }
+    }
+    
+    // Delete all files in paths
+    await supabase.storage
+      .from("VideoStream")
+      .remove(paths);
+
+    const VideoDel = await Video.deleteOne({videoId});
+    if(!VideoDel.acknowledged){
+      console.log("Failed to delete video metadata from db!");
+      return res.status(500).json({error: "Failed to delete video metadata from db!"});
+    }
+
+    return res.status(200).json({ message: "Video deleted successfully!" });
+  } catch (err) {
+    console.log("Something went wrong!", err);
   }
 }
 
-
-export { completeUpload, initUpload, getVideo };
+export { completeUpload, initUpload, getVideo, deleteVideo };

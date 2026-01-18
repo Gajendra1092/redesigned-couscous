@@ -47,6 +47,11 @@ const videoSchema = new mongoose.Schema(
       required: false,
       default: null,
     },
+    hlsPath: {
+      type: String,
+      required: false,
+      default: null,
+    },
     original: {
       width: Number,
       height: Number,

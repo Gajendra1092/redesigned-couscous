@@ -94,16 +94,13 @@ async function upload() {
   }
 }
 
+let hls = null;
 let currentVideoData = null;
 
-/**
- * Load video metadata + signed URLs
- */
 async function loadVideo() {
   const videoId = document.getElementById("videoIdInput").value;
   const video = document.getElementById("videoPlayer");
   const thumbnail = document.getElementById("thumbnail");
-  const qualitySelect = document.getElementById("qualitySelect");
 
   if (!videoId) {
     alert("Please enter videoId");
@@ -111,54 +108,87 @@ async function loadVideo() {
   }
 
   try {
-    const res = await fetch(`${BACKEND_URL}/api/v1/video/${videoId}`);
     
+    const res = await fetch(`${BACKEND_URL}/api/v1/video/${videoId}`);
+
     if (!res.ok) {
       alert("Video not ready or not found!");
       return;
     }
 
     const data = await res.json();
-    currentVideoData = data; 
+
 
     // ---- Thumbnail ----
     thumbnail.src = data.thumbnailUrl;
     thumbnail.style.display = "block";
 
-    // ---- Video ----
-    video.src = data.renditions[0].url;
-    video.poster = data.thumbnailUrl;
+    // ---- HLS Playback ----
+    const hlsUrl = data.hlsUrl;
     video.style.display = "block";
+    video.poster = data.thumbnailUrl;
 
-    // ---- Quality Selector ----
-    qualitySelect.innerHTML = "";
-    data.renditions.forEach((r, index) => {
-      const option = document.createElement("option");
-      option.value = index;
-      option.text = `${r.height}p`;
-      qualitySelect.appendChild(option);
-    });
+    
+    // Cleanup previous instance
+    if (hls) {
+      hls.destroy();
+      hls = null;
+    }
 
-    qualitySelect.style.display = "block";
+
+    // All other browsers
+    if (Hls.isSupported()) {
+
+      hls = new Hls({
+        autoStartLoad: true,
+        capLevelToPlayerSize: true,
+      });
+
+      
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        const { type, details, fatal } = data;
+        console.log(type, details, fatal);
+      });
+      
+      hls.loadSource(hlsUrl);
+      hls.attachMedia(video);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        video.play();
+      });
+
+    } else {
+      alert("HLS not supported in this browser");
+    }
   } catch (err) {
     console.error(err);
     alert("Failed to load video");
   }
 }
 
-/**
- * Change video quality manually
- */
-function changeQuality() {
-  const video = document.getElementById("videoPlayer");
-  const qualitySelect = document.getElementById("qualitySelect");
 
-  if (!currentVideoData) return;
+async function deleteVideo() {
 
-  const selected = qualitySelect.value;
-  const currentTime = video.currentTime;
+    const videoId = document.getElementById("videoIdInput").value;
+    if(!videoId){
+      alert("Please enter videoId");
+      return;
+    }
 
-  video.src = currentVideoData.renditions[selected].url;
-  video.currentTime = currentTime;
-  video.play();
+    try{
+       const response = await fetch(`${BACKEND_URL}/api/v1/video/${videoId}/delete`,{method:"DELETE"});
+       if(!response.ok){
+          alert("Failed to delete video");
+          return;
+       }
+       else{
+          console.log("Video deleted successfully");
+          alert("Video Deleted successfully!");
+       }
+    }
+    catch(err){
+        console.log("Their is an error in deletingVideo, the error is:",err);
+        alert("Error in deleting video");
+    }
+
 }

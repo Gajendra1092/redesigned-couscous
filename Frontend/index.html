@@ -11,29 +11,40 @@
     <button onclick="upload()">Upload</button>
 
     <pre id="log"></pre>
+
     <hr />
 
     <h2>Play Video</h2>
 
-    <input type="text" id="videoIdInput" placeholder="Enter videoId" />
+    <input
+      type="text"
+      id="videoIdInput"
+      placeholder="Enter videoId"
+      style="width: 400px"
+    />
     <button onclick="loadVideo()">Load Video</button>
+    <button onclick="deleteVideo()">Delete Video</button>
 
     <br /><br />
 
-    <img id="thumbnail" style="max-width: 400px; display: none" />
+    <!-- 🔥 Video Player -->
+    <video
+      id="videoPlayer"
+      controls
+      width="720"
+      style="display:none"
+    ></video>
 
     <br /><br />
 
-    <select
-      id="qualitySelect"
-      onchange="changeQuality()"
-      style="display: none"
-    ></select>
+    <img
+      id="thumbnail"
+      width="320"
+      style="display:none"
+    />
 
-    <br /><br />
-
-    <video id="videoPlayer" width="600" controls style="display: none"></video>
-
+    <!-- ✅ HLS.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="script.js"></script>
   </body>
 </html>
