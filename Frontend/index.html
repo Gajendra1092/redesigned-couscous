@@ -1,8 +1,16 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <title>Video Upload Test</title>
+    <style>
+      #qualityControls button {
+        margin-right: 8px;
+        padding: 6px 12px;
+        cursor: pointer;
+      }
+    </style>
   </head>
+
   <body>
     <h2>Upload Video</h2>
 
@@ -27,6 +35,11 @@
 
     <br /><br />
 
+    <!-- Thumbnail -->
+    <img id="thumbnail" width="320" style="display:none" />
+
+    <br /><br />
+
     <!-- 🔥 Video Player -->
     <video
       id="videoPlayer"
@@ -37,11 +50,12 @@
 
     <br /><br />
 
-    <img
-      id="thumbnail"
-      width="320"
-      style="display:none"
-    />
+    <!-- 🎯 Quality Controls -->
+    <div id="qualityControls" style="display:none">
+      <strong>Quality:</strong>
+      <button onclick="setQuality(-1)">Auto</button>
+      <!-- Dynamic buttons injected from script.js -->
+    </div>
 
     <!-- ✅ HLS.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>

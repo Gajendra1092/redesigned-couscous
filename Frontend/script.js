@@ -1,15 +1,15 @@
 const BACKEND_URL = "http://localhost:5000";
 let isUploading = false;
+let hls = null;
 
 async function upload() {
   const fileInput = document.getElementById("fileInput");
   const log = document.getElementById("log");
 
-  if (isUploading) return; // prevent double upload
+  if (isUploading) return;
   isUploading = true;
 
   try {
-    // -------- SAFETY CHECK 1: File existence --------
     if (!fileInput.files.length) {
       log.innerText = "❌ No file selected";
       return;
@@ -17,14 +17,12 @@ async function upload() {
 
     const file = fileInput.files[0];
 
-    // -------- SAFETY CHECK 2: File size (example: 500MB) --------
     const MAX_SIZE = 500 * 1024 * 1024;
     if (file.size > MAX_SIZE) {
       log.innerText = "❌ File too large";
       return;
     }
 
-    // -------- SAFETY CHECK 3: File type --------
     if (!file.type.startsWith("video/")) {
       log.innerText = "❌ Invalid file type";
       return;
@@ -32,7 +30,6 @@ async function upload() {
 
     log.innerText = "Initializing upload...\n";
 
-    // -------- STEP 1: Init upload --------
     const initRes = await fetch(`${BACKEND_URL}/api/v1/video/init-upload`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -42,16 +39,13 @@ async function upload() {
       }),
     });
 
-    // -------- SAFETY CHECK 4: Backend response --------
     if (!initRes.ok) {
       log.innerText += "❌ Init upload failed";
       return;
     }
 
-    const initData = await initRes.json();
-    const { uploadUrl, videoId, filePath } = initData;
+    const { uploadUrl, videoId, filePath } = await initRes.json();
 
-    // -------- SAFETY CHECK 5: Required fields --------
     if (!uploadUrl || !videoId || !filePath) {
       log.innerText += "❌ Invalid init-upload response";
       return;
@@ -59,7 +53,6 @@ async function upload() {
 
     log.innerText += "Uploading to Supabase...\n";
 
-    // -------- STEP 2: Upload file --------
     const uploadRes = await fetch(uploadUrl, {
       method: "PUT",
       headers: { "Content-Type": file.type },
@@ -73,7 +66,6 @@ async function upload() {
 
     log.innerText += "Upload completed ✅\n";
 
-    // -------- STEP 3: Notify backend --------
     const completeRes = await fetch(`${BACKEND_URL}/api/v1/video/complete`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -90,12 +82,39 @@ async function upload() {
     console.error(err);
     log.innerText += "❌ Unexpected error occurred";
   } finally {
-    isUploading = false; // always reset
+    isUploading = false;
   }
 }
 
-let hls = null;
-let currentVideoData = null;
+const qualityControls = document.getElementById("qualityControls");
+
+function buildQualityButtons(levels) {
+  qualityControls.innerHTML = `
+    <strong>Quality:</strong>
+    <button onclick="setQuality(-1)">Auto</button>
+  `;
+
+  levels.forEach((level, index) => {
+    const btn = document.createElement("button");
+    btn.innerText = `${level.height}p`;
+    btn.onclick = () => setQuality(index);
+    qualityControls.appendChild(btn);
+  });
+}
+
+function setQuality(levelIndex) {
+  if (!hls) return;
+
+  hls.currentLevel = levelIndex;
+
+  console.log(
+    levelIndex === -1
+      ? "Quality set to AUTO"
+      : `Quality set to ${hls.levels[levelIndex].height}p`
+  );
+}
+
+
 
 async function loadVideo() {
   const videoId = document.getElementById("videoIdInput").value;
@@ -108,7 +127,6 @@ async function loadVideo() {
   }
 
   try {
-    
     const res = await fetch(`${BACKEND_URL}/api/v1/video/${videoId}`);
 
     if (!res.ok) {
@@ -118,45 +136,39 @@ async function loadVideo() {
 
     const data = await res.json();
 
-
-    // ---- Thumbnail ----
     thumbnail.src = data.thumbnailUrl;
     thumbnail.style.display = "block";
 
-    // ---- HLS Playback ----
-    const hlsUrl = data.hlsUrl;
     video.style.display = "block";
     video.poster = data.thumbnailUrl;
 
-    
-    // Cleanup previous instance
+    // Cleanup old instance
     if (hls) {
       hls.destroy();
       hls = null;
     }
 
+    qualityControls.style.display = "none";
+    qualityControls.innerHTML = "";
 
-    // All other browsers
     if (Hls.isSupported()) {
-
       hls = new Hls({
         autoStartLoad: true,
         capLevelToPlayerSize: true,
       });
 
-      
       hls.on(Hls.Events.ERROR, (event, data) => {
-        const { type, details, fatal } = data;
-        console.log(type, details, fatal);
+        console.log(data.type, data.details, data.fatal);
       });
-      
-      hls.loadSource(hlsUrl);
+
+      hls.loadSource(data.hlsUrl);
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        buildQualityButtons(hls.levels);
+        qualityControls.style.display = "block";
         video.play();
       });
-
     } else {
       alert("HLS not supported in this browser");
     }
@@ -168,27 +180,27 @@ async function loadVideo() {
 
 
 async function deleteVideo() {
+  const videoId = document.getElementById("videoIdInput").value;
 
-    const videoId = document.getElementById("videoIdInput").value;
-    if(!videoId){
-      alert("Please enter videoId");
+  if (!videoId) {
+    alert("Please enter videoId");
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/api/v1/video/${videoId}/delete`,
+      { method: "DELETE" }
+    );
+
+    if (!response.ok) {
+      alert("Failed to delete video");
       return;
     }
 
-    try{
-       const response = await fetch(`${BACKEND_URL}/api/v1/video/${videoId}/delete`,{method:"DELETE"});
-       if(!response.ok){
-          alert("Failed to delete video");
-          return;
-       }
-       else{
-          console.log("Video deleted successfully");
-          alert("Video Deleted successfully!");
-       }
-    }
-    catch(err){
-        console.log("Their is an error in deletingVideo, the error is:",err);
-        alert("Error in deleting video");
-    }
-
+    alert("Video deleted successfully!");
+  } catch (err) {
+    console.error("Delete error:", err);
+    alert("Error deleting video");
+  }
 }
